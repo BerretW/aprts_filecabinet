@@ -18,7 +18,7 @@ Config.Jobs = {
 
 Config.InventoryPrefix = "aprts_filecabinet_"
 Config.FileItem = 'filecabinet_key'
-Config.FolderItem = 'folder_key'
+Config.EmptyPaperItem = 'product_paper'
 Config.CabinetLoactions= {
     [1]={name = "Kartotéka Doktor Valentine", coords =vector3(-288.447601, 813.201538, 119.385971),jobs = {{job = 'doctor', grade = 1}}, heading = 70.0, model = 'prop_file_cabinet_01'},
 }

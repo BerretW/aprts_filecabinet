@@ -13,11 +13,17 @@ AddEventHandler("onResourceStop", function(resourceName)
 end)
 
 
-RegisterNetEvent("aprts_filecabinet:Server:OpenCabinetMenu")
-AddEventHandler("aprts_filecabinet:Server:OpenCabinetMenu", function(cabinetId,items)
+RegisterNetEvent("aprts_filecabinet:Client:OpenCabinetMenu")
+AddEventHandler("aprts_filecabinet:Client:OpenCabinetMenu", function(id,files, emptyPapersCount)
     -- posílá seznam dostupných spisů ve skříňce
+    print(json.encode(files, {indent = true}))
+    local cabinet = Config.CabinetLoactions[id]
+    SetNuiFocus(true, true)
         SendNUIMessage({
             action = "open",
-            recipes = items
+            cabinetID = id,
+            cabinetName = cabinet.name,
+            files = files,
+            emptyPapersCount = emptyPapersCount
         })
 end)

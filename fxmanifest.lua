@@ -8,7 +8,7 @@ description 'aprts_filecabinet'
 
 games {"rdr3"}
 
-client_scripts {'config.lua','client/client.lua','client/events.lua','client/renderer.lua','client/visualizer.lua','client/commands.lua',}
+client_scripts {'config.lua','client/client.lua','client/events.lua', 'client/nui.lua','client/commands.lua',}
 server_scripts {'@oxmysql/lib/MySQL.lua','config.lua','server/server.lua','server/events.lua','server/commands.lua',}
 shared_scripts {
     'config.lua',
@@ -17,8 +17,11 @@ shared_scripts {
 }
 
 
-ui_page "nui://jo_libs/nui/menu/index.html"
+ui_page 'html/index.html'
 
-escrow_ignore {
-    'config.lua'
-  }
+files {
+    'html/index.html',
+    'html/style.css',
+    'html/script.js',
+    'html/vue.global.js' -- Stáhni si vue 3 (viz níže) nebo použij CDN link v HTML
+}

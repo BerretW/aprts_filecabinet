@@ -76,7 +76,7 @@ function unixToDateTime(unixTime)
     return os.date('%Y-%m-%d %H:%M:%S', unixTime)
 end
 
-function RegisterInventory(stor_id,inventoryName)
+function RegisterInventory(stor_id, inventoryName)
     local prefix = Config.InventoryPrefix
 
     local isRegistered = exports.vorp_inventory:isCustomInventoryRegistered(prefix .. tostring(stor_id))
@@ -145,4 +145,16 @@ function LOG(player, event, message, ...)
     DiscordWeb(event .. ", " .. playerName, message, os.date("Datum: %d.%m.%Y Čas: %H:%M:%S"))
     lib.logger(player, event, text, ...)
 
+end
+
+function getFilesFromInventory(inventory)
+    local items = exports.vorp_inventory:getCustomInventoryItems(inventory)
+    print(json.encode(items, {indent = true}))
+    local files = {}
+    for _, item in pairs(items) do
+        if item.name == Config.FileItem then
+                table.insert(files, item)
+        end
+    end
+    return files
 end
