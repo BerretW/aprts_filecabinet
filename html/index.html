@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Cabinet</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body>
+    <div id="app" :style="{ display: visible ? 'flex' : 'none' }" v-cloak>
+        <div class="container">
+            <!-- Levý panel: Seznam spisů -->
+            <div class="sidebar">
+                <div class="header">
+                    <h2>{{ cabinetName }}</h2>
+                    <small>Dostupných papírů: {{ emptyPapersCount }}</small>
+                </div>
+                
+                <div class="file-list">
+                    <div 
+                        v-for="(file, index) in files" 
+                        :key="index" 
+                        class="file-item" 
+                        :class="{ active: selectedFile === file }"
+                        @click="selectFile(file)"
+                    >
+                        <span class="icon">📁</span>
+                        <span class="title">{{ getFileTitle(file) }}</span>
+                    </div>
+                    <div v-if="files.length === 0" class="no-files">
+                        Žádné spisy...
+                    </div>
+                </div>
+
+                <div class="footer">
+                    <button class="btn-create" @click="startCreating" :disabled="emptyPapersCount <= 0">
+                        + Nový spis
+                    </button>
+                    <button class="btn-close" @click="closeMenu">
+                        Zavřít
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pravý panel: Obsah (Čtení nebo Psaní) -->
+            <div class="content-area">
+                <!-- Režim: Nic nevybráno -->
+                <div v-if="mode === 'none'" class="placeholder">
+                    <p>Vyberte spis pro čtení nebo založte nový.</p>
+                </div>
+
+                <!-- Režim: Čtení -->
+                <div v-else-if="mode === 'read'" class="paper-view">
+                    <div class="paper-content">
+                        <h1 class="paper-title">{{ getFileTitle(selectedFile) }}</h1>
+                        <hr>
+                        <div class="paper-body">
+                            {{ getFileContent(selectedFile) }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Režim: Psaní -->
+                <div v-else-if="mode === 'create'" class="paper-edit">
+                    <div class="paper-content">
+                        <h3>Nový spis</h3>
+                        <input type="text" v-model="newFile.title" placeholder="Název spisu..." maxlength="30">
+                        <textarea v-model="newFile.content" placeholder="Sem napište obsah spisu..."></textarea>
+                        
+                        <div class="actions">
+                            <button @click="saveFile" class="btn-save">Uložit do kartotéky</button>
+                            <button @click="mode = 'none'" class="btn-cancel">Zrušit</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
