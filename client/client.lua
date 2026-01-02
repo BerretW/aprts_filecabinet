@@ -43,12 +43,19 @@ function hasJob(jobtable)
     if not jobtable or table.count(jobtable) == 0 then
         return true
     end
+    -- Bezpečnější check, zda existuje Character
+    if not LocalPlayer.state.Character then return false end
+    
     local pjob = LocalPlayer.state.Character.Job
     local pGrade = LocalPlayer.state.Character.Grade
     local pLabel = LocalPlayer.state.Character.Label
+    
     for _, v in pairs(jobtable) do
-        if v.job == pjob and v.grade <= pGrade and (v.label == "" or v.label == nil or v.label == pLabel) then
-            return true
+        -- Opravena podmínka pro string/nil porovnání labelu
+        if v.job == pjob and v.grade <= pGrade then
+            if v.label == "" or v.label == nil or v.label == pLabel then
+                return true
+            end
         end
     end
     return false
@@ -227,34 +234,34 @@ function DisableActions(ped)
 end
 
 Citizen.CreateThread(function()
+    waitForCharacter() -- Čekáme na načtení postavy
     prompt()
+    
     while true do
         local pause = 1000
         local playerPed = PlayerPedId()
         local pCoords = GetEntityCoords(playerPed)
-        for id, cabinet in pairs(Config.CabinetLoactions) do
-            if not hasJob(cabinet.jobs) then
-                goto continue
-            end
-            local dist = #(pCoords - cabinet.coords)
-            if dist < 1.0 then
-                pause = 0
-                local name = CreateVarString(10, 'LITERAL_STRING', "Kartotéka")
-                PromptSetActiveGroupThisFrame(promptGroup, name)
-                if PromptHasHoldModeCompleted(Prompt) then
-
-                    TriggerServerEvent("aprts_filecabinet:Server:OpenCabinetMenu", id)
-                    Wait(1000)
+        
+        -- Opravený název Config.CabinetLocations
+        for id, cabinet in pairs(Config.CabinetLocations) do
+            if hasJob(cabinet.jobs) then
+                local dist = #(pCoords - cabinet.coords)
+                if dist < 1.5 then -- Zvětšeno na 1.5 pro lepší odezvu
+                    pause = 0
+                    local name = CreateVarString(10, 'LITERAL_STRING', cabinet.name or "Kartotéka")
+                    PromptSetActiveGroupThisFrame(promptGroup, name)
+                    
+                    if PromptHasHoldModeCompleted(Prompt) then
+                        TriggerServerEvent("aprts_filecabinet:Server:OpenCabinetMenu", id)
+                        Wait(1000)
+                    end
+                    if PromptHasHoldModeCompleted(Prompt2) then
+                        TriggerServerEvent("aprts_filecabinet:Server:OpenCabinet", id)
+                        Wait(1000)
+                    end
                 end
-                if PromptHasHoldModeCompleted(Prompt2) then
-
-                    TriggerServerEvent("aprts_filecabinet:Server:OpenCabinet", id)
-                    Wait(1000)
-                end
             end
-            ::continue::
         end
         Citizen.Wait(pause)
     end
 end)
-

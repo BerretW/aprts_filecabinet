@@ -14,16 +14,37 @@ end)
 
 
 RegisterNetEvent("aprts_filecabinet:Client:OpenCabinetMenu")
-AddEventHandler("aprts_filecabinet:Client:OpenCabinetMenu", function(id,files, emptyPapersCount)
-    -- posílá seznam dostupných spisů ve skříňce
-    print(json.encode(files, {indent = true}))
-    local cabinet = Config.CabinetLoactions[id]
-    SetNuiFocus(true, true)
+AddEventHandler("aprts_filecabinet:Client:OpenCabinetMenu", function(id, files, emptyPapersCount, docTypes)
+    local cabinet = Config.CabinetLocations[id]
+    
+    if cabinet then
+        SetNuiFocus(true, true)
         SendNUIMessage({
             action = "open",
             cabinetID = id,
             cabinetName = cabinet.name,
             files = files,
-            emptyPapersCount = emptyPapersCount
+            emptyPapersCount = emptyPapersCount,
+            docTypes = docTypes -- Předáváme config do JS
         })
+    end
+end)
+
+
+RegisterNetEvent("aprts_filecabinet:Client:OpenSingleFile")
+AddEventHandler("aprts_filecabinet:Client:OpenSingleFile", function(itemData)
+    -- itemData obsahuje metadata z inventáře
+    if not itemData or not itemData.metadata then 
+        notify("Tento spis je poškozený.")
+        return 
+    end
+
+    SetNuiFocus(true, true)
+    
+    -- Posíláme zprávu do JS s novou akcí 'openSingleFile'
+    SendNUIMessage({
+        action = "openSingleFile",
+        file = itemData, 
+        docTypes = Config.DocumentTypes -- Musíme poslat i definice typů
+    })
 end)
