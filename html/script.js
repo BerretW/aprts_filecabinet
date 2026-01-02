@@ -5,51 +5,95 @@ const app = createApp({
         return {
             // Stav viditelnosti
             visible: false,
-            
+
             // Data kartotéky
             cabinetID: null,
             cabinetName: "Kartotéka",
             files: [],
             emptyPapersCount: 0,
-            
+
             // Konfigurace typů dokumentů (načte se z Lua)
-            docTypes: {}, 
-            
+            docTypes: {},
+            processedFiles: [],
             // UI State
             searchQuery: '',
             mode: 'none', // 'none', 'read', 'create', 'edit'
             selectedFile: null, // Aktuálně zobrazený soubor
             originalFile: null, // Původní soubor při editaci (pro ID)
             isSingleFileView: false, // True = otevřeno z inventáře (skryje šuplík)
-            
+
             // Data pro nový/editovaný soubor
-            newFile: { 
-                title: '', 
-                type: 'standard', 
-                content: '', 
-                formData: {} 
+            newFile: {
+                title: '',
+                type: 'standard',
+                content: '',
+                formData: {}
             },
-            
+
             // Instance Quill editoru
             quill: null
         };
     },
     computed: {
-        // Filtrování seznamu podle vyhledávání
         filteredFiles() {
-            if (!this.searchQuery) return this.files;
+            if (!this.searchQuery) return this.processedFiles;
             const query = this.searchQuery.toLowerCase();
-            
-            return this.files.filter(file => {
-                const title = this.getFileTitle(file).toLowerCase();
-                const typeLabel = this.getFileLabel(file).toLowerCase();
-                return title.includes(query) || typeLabel.includes(query);
+
+            // Filtrujeme hlavní položky (Složky i volné soubory)
+            // Pokud je to složka, chceme ji zobrazit, pokud buď ona nebo její děti odpovídají hledání
+            return this.processedFiles.filter(item => {
+                const title = this.getFileTitle(item).toLowerCase();
+                const matchesSelf = title.includes(query);
+
+                if (item.isFolder) {
+                    // Pokud je to složka, zkontroluj i děti
+                    const childrenMatch = item.children.some(child =>
+                        this.getFileTitle(child).toLowerCase().includes(query)
+                    );
+                    return matchesSelf || childrenMatch;
+                }
+
+                return matchesSelf;
             });
+        },
+availableCitizens() {
+    let names = [];
+    
+    // Projdeme všechny soubory
+    this.files.forEach(file => {
+        // Kontrola, zda je to složka občana (isProfile z Configu)
+        const type = this.getFileType(file);
+        const typeConfig = this.docTypes[type];
+        
+        if (typeConfig && typeConfig.isProfile) {
+            try {
+                // Pokusíme se vytáhnout jméno z obsahu
+                const content = JSON.parse(file.metadata.content || "{}");
+                
+                // Pokud tam je jméno, přidáme ho
+                if (content.name && typeof content.name === 'string' && content.name.trim().length > 0) {
+                    names.push(content.name.trim());
+                }
+            } catch (e) {
+                // Ignorujeme chyby parsování u poškozených souborů
+            }
         }
+    });
+
+    // Seřadíme a odstraníme duplicity
+    const result = [...new Set(names)].sort();
+    
+    // VÝPIS DO F8 KONZOLE (Důležité pro kontrolu!)
+    if (this.visible) {
+        console.log(`[NAŠEPTÁVAČ] Nalezeno ${result.length} občanů:`, result);
+    }
+    
+    return result;
+}
     },
     methods: {
         // --- POMOCNÉ FUNKCE PRO ZOBRAZENÍ DAT ---
-        
+
         getFileTitle(file) {
             if (!file || !file.metadata) return "Poškozený záznam";
             return file.metadata.title || "Bez názvu";
@@ -67,9 +111,9 @@ const app = createApp({
             if (!file || !file.metadata) return "";
             return file.metadata.content || "";
         },
-        
+
         // --- LOGIKA PRO FORMULÁŘE ---
-        
+
         getFormFields(file) {
             const type = this.getFileType(file);
             if (this.docTypes[type] && this.docTypes[type].isForm) {
@@ -90,13 +134,28 @@ const app = createApp({
         },
 
         // --- AKCE UI ---
+isLinkedField(fieldKey) {
+    // 1. Varianta: Je to definované v Configu jako linkedKey?
+    const currentTypeConfig = this.docTypes[this.newFile.type];
+    if (currentTypeConfig && currentTypeConfig.linkedKey === fieldKey) {
+        return true;
+    }
 
+    // 2. Varianta: Je to jedno z běžných jmenných polí? (POJISTKA)
+    // Pokud se klíč pole rovná některému z těchto, zapneme našeptávač automaticky
+    const commonNameFields = ["name", "suspect", "patient", "doctor", "owner", "citizen", "fullname"];
+    if (commonNameFields.includes(fieldKey)) {
+        return true;
+    }
+
+    return false;
+},
         selectFile(file) {
             this.selectedFile = file;
             this.mode = 'read';
             this.originalFile = null;
         },
-        
+
         // Zahájení vytváření nového spisu
         async startCreating() {
             if (this.emptyPapersCount > 0) {
@@ -104,7 +163,7 @@ const app = createApp({
                 this.mode = 'create';
                 this.selectedFile = null;
                 this.originalFile = null;
-                
+
                 // Počkáme na vykreslení DOMu a nahodíme editor
                 await nextTick();
                 this.initQuill();
@@ -135,11 +194,11 @@ const app = createApp({
                 this.newFile.content = fileToEdit.metadata.content || '';
                 this.newFile.formData = {};
             }
-            
+
             this.mode = 'edit';
             await nextTick();
             // Inicializujeme Quill s existujícím obsahem (pokud to není formulář)
-            this.initQuill(this.newFile.content); 
+            this.initQuill(this.newFile.content);
         },
 
         // Zrušení akce
@@ -159,7 +218,7 @@ const app = createApp({
             // Reset dat
             this.newFile.formData = {};
             this.newFile.content = '';
-            
+
             const typeCfg = this.docTypes[this.newFile.type];
             if (typeCfg && !typeCfg.isForm) {
                 // Přepnuto na editor -> nahodit Quill
@@ -167,12 +226,79 @@ const app = createApp({
             } else {
                 // Přepnuto na formulář -> zničit Quill
                 if (this.quill) {
-                    this.quill = null; 
+                    this.quill = null;
                     // (DOM element se skryje díky v-show/v-if ve Vue)
                 }
             }
         },
+        processFilesStructure(rawFiles) {
+            let profiles = {}; // Mapa: "jméno" -> Objekt složky
+            let unlinked = []; // Soubory, které nikam nepatří
 
+            // 1. KROK: Najdi všechny profily občanů
+            rawFiles.forEach(file => {
+                const type = this.getFileType(file);
+                const typeConfig = this.docTypes[type];
+
+                if (typeConfig && typeConfig.isProfile) {
+                    // Získáme jméno z obsahu formuláře
+                    const contentData = JSON.parse(file.metadata.content || "{}");
+                    const citizenName = (contentData.name || "Neznámý").trim().toLowerCase();
+
+                    // Vytvoříme strukturu složky
+                    // Přidáme property 'isFolder', 'isOpen', 'children'
+                    file.isFolder = true;
+                    file.isOpen = false; // Defaultně zavřeno
+                    file.children = [];
+                    file.citizenNameNormalized = citizenName; // Pro snadné párování
+
+                    // Uložíme do mapy (pokud je jméno unikátní, jinak přepíše - kolize jmen je riziko)
+                    profiles[citizenName] = file;
+                }
+            });
+
+            // 2. KROK: Roztřiď ostatní soubory
+            rawFiles.forEach(file => {
+                const type = this.getFileType(file);
+                const typeConfig = this.docTypes[type];
+
+                // Pokud to je samotný profil, přeskočíme (už jsme ho zpracovali)
+                if (typeConfig && typeConfig.isProfile) return;
+
+                let isLinked = false;
+
+                // Pokud má typ definovaný 'linkedKey' (např. 'suspect' nebo 'name')
+                if (typeConfig && typeConfig.linkedKey) {
+                    try {
+                        const contentData = JSON.parse(file.metadata.content || "{}");
+                        const targetName = (contentData[typeConfig.linkedKey] || "").trim().toLowerCase();
+
+                        if (targetName && profiles[targetName]) {
+                            profiles[targetName].children.push(file);
+                            isLinked = true;
+                        }
+                    } catch (e) {
+                        console.error("Chyba při parsování pro linkování:", e);
+                    }
+                }
+
+                if (!isLinked) {
+                    unlinked.push(file);
+                }
+            });
+
+            // 3. KROK: Vrať pole - napřed profily (Složky), pak volné soubory
+            return [...Object.values(profiles), ...unlinked];
+        },
+
+        // Upravit toggle metodu pro otevírání složek
+        toggleFolder(file) {
+            if (file.isFolder) {
+                file.isOpen = !file.isOpen;
+            } else {
+                this.selectFile(file);
+            }
+        },
         // Inicializace Quill Editoru
         initQuill(initialContent = '') {
             const container = document.getElementById('quill-editor');
@@ -181,21 +307,21 @@ const app = createApp({
             // Inicializujeme jen pokud to NENÍ formulář
             if (container && typeConfig && !typeConfig.isForm) {
                 // Vyčistit starý obsah
-                container.innerHTML = ""; 
-                
+                container.innerHTML = "";
+
                 this.quill = new Quill('#quill-editor', {
                     theme: 'snow',
                     modules: {
                         toolbar: [
                             ['bold', 'italic', 'underline', 'strike'],
                             [{ 'header': [1, 2, false] }],
-                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
                             ['clean']
                         ]
                     },
                     placeholder: 'Zde pište text...'
                 });
-                
+
                 // Pokud máme obsah (editace), vložíme ho
                 if (initialContent) {
                     this.quill.root.innerHTML = initialContent;
@@ -279,35 +405,41 @@ const app = createApp({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json; charset=UTF-8' },
                 body: JSON.stringify({})
-            }).catch(err => {});
+            }).catch(err => { });
         },
 
-        handleMessage(event) {
-            const item = event.data;
-            
-            // 1. Otevření celé kartotéky
-            if (item.action === 'open') {
-                this.cabinetID = item.cabinetID;
-                this.cabinetName = item.cabinetName;
-                this.files = item.files || [];
-                this.emptyPapersCount = item.emptyPapersCount || 0;
-                this.docTypes = item.docTypes || {};
-                
-                this.visible = true;
-                this.searchQuery = '';
-                this.mode = 'none';
-                this.isSingleFileView = false; 
-                this.selectedFile = null;
-            }
-            
+handleMessage(event) {
+    const item = event.data;
+    
+    if (item.action === 'open') {
+        // 1. Nejdřív načteme definice typů (Config)
+        this.docTypes = item.docTypes || {};
+        
+        // 2. Načteme surová data souborů
+        this.files = item.files || [];
+        this.emptyPapersCount = item.emptyPapersCount || 0;
+        
+        this.cabinetID = item.cabinetID;
+        this.cabinetName = item.cabinetName;
+
+        // 3. TEPRVE TEĎ spustíme třídění, protože už máme this.docTypes
+        this.processedFiles = this.processFilesStructure(this.files);
+        
+        this.visible = true;
+        this.searchQuery = '';
+        this.mode = 'none';
+        this.isSingleFileView = false; 
+        this.selectedFile = null;
+    }
+
             // 2. Otevření jednoho souboru (z inventáře)
             if (item.action === 'openSingleFile') {
                 this.docTypes = item.docTypes || {};
-                
+
                 this.selectedFile = item.file;
                 this.mode = 'read';
                 this.isSingleFileView = true; // Skryje šuplík a editaci
-                
+
                 this.visible = true;
             }
 

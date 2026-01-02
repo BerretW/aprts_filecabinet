@@ -52,9 +52,7 @@ body { margin: 0; padding: 0; background: transparent; font-family: 'Roboto Cond
 .stat-badge { background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 4px; }
 .stat-badge.danger { color: #ef5350; }
 
-.search-bar {
-    position: relative;
-}
+.search-bar { position: relative; }
 .search-bar i {
     position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
     color: #8d6e63;
@@ -78,17 +76,64 @@ body { margin: 0; padding: 0; background: transparent; font-family: 'Roboto Cond
 ::-webkit-scrollbar-track { background: #2c1e14; }
 ::-webkit-scrollbar-thumb { background: #5d4037; border-radius: 3px; }
 
+/* --- DRAWER ITEMS & FOLDERS --- */
 .drawer-item {
     display: flex; align-items: center; gap: 12px;
     padding: 12px;
     background: #4e342e;
-    margin-bottom: 8px;
+    margin-bottom: 4px; /* Menší mezera */
     border-radius: 4px; border: 1px solid #5d4037;
     cursor: pointer;
     transition: all 0.2s;
 }
 .drawer-item:hover { background: #5d4037; transform: translateX(2px); }
 .drawer-item.active { background: #ffcc80; color: #2c1e14; border-color: #ffb74d; font-weight: bold; }
+
+/* Styles for Folder Groups */
+.folder-group { margin-bottom: 8px; }
+
+.folder-header {
+    background-color: #3e2723; /* Tmavší než běžný item */
+    border-left: 4px solid #ffcc80; /* Zlatý proužek vlevo */
+}
+.folder-header:hover { background-color: #4e342e; }
+
+.folder-toggle {
+    margin-left: auto; /* Zarovná šipku doprava */
+    padding: 5px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: transform 0.2s;
+}
+.folder-toggle:hover { opacity: 1; transform: scale(1.1); }
+
+/* Nested Items */
+.folder-children {
+    background-color: #281a14;
+    border-left: 2px solid #5d4037;
+    margin-left: 15px;
+    padding: 5px 0 5px 5px;
+    border-radius: 0 0 4px 4px;
+}
+
+.child-item {
+    margin-bottom: 2px;
+    border: none;
+    border-bottom: 1px solid #3e2723;
+    border-radius: 0;
+    padding-left: 10px;
+    background: transparent;
+    font-size: 0.95em;
+}
+.child-item:hover { background: #3e2723; }
+
+.empty-folder-msg {
+    padding: 10px;
+    font-size: 0.8rem;
+    color: #8d6e63;
+    font-style: italic;
+    text-align: center;
+}
 
 .item-icon { font-size: 1.2rem; width: 25px; text-align: center; }
 .item-content { display: flex; flex-direction: column; overflow: hidden; }
@@ -127,6 +172,11 @@ body { margin: 0; padding: 0; background: transparent; font-family: 'Roboto Cond
     overflow: hidden;
 }
 
+.document-area.single-view-centered {
+    width: 100%;
+    background-color: rgba(44, 30, 20, 0.85); 
+}
+
 .empty-state {
     color: #8d6e63; text-align: center;
     margin-top: 100px;
@@ -141,7 +191,7 @@ body { margin: 0; padding: 0; background: transparent; font-family: 'Roboto Cond
     padding: 50px;
     overflow-y: auto;
     color: #212121;
-    font-family: 'Courier Prime', monospace; /* Psací stroj */
+    font-family: 'Courier Prime', monospace;
     position: relative;
 }
 
@@ -172,70 +222,44 @@ body { margin: 0; padding: 0; background: transparent; font-family: 'Roboto Cond
 /* FORM GRID LAYOUT */
 .form-grid {
     display: grid;
-    grid-template-columns: repeat(12, 1fr); /* 12 sloupců */
-    gap: 15px 20px; /* Mezera: řádky sloupce */
+    grid-template-columns: repeat(12, 1fr);
+    gap: 15px 20px;
     margin-top: 20px;
 }
 
-.grid-item {
-    display: flex; 
-    flex-direction: column;
-}
-
-/* Definice šířek */
-.width-full       { grid-column: span 12; } /* 100% */
-.width-half       { grid-column: span 6; }  /* 50% */
-.width-third      { grid-column: span 4; }  /* 33.3% */
-.width-two-thirds { grid-column: span 8; }  /* 66.6% */
-.width-quarter    { grid-column: span 3; }  /* 25% */
-
-/* Pokud někdo nezadá width, default je full */
+.grid-item { display: flex; flex-direction: column; }
+.width-full { grid-column: span 12; }
+.width-half { grid-column: span 6; }
+.width-third { grid-column: span 4; }
+.width-two-thirds { grid-column: span 8; }
+.width-quarter { grid-column: span 3; }
 .grid-item:not([class*="width-"]) { grid-column: span 12; }
 
-/* Stylování labelů a hodnot */
 .grid-item label {
-    font-size: 0.75rem; 
-    font-weight: bold; 
-    text-transform: uppercase;
-    color: #5d4037; 
-    margin-bottom: 5px;
-    border-bottom: 1px solid #d7ccc8;
+    font-size: 0.75rem; font-weight: bold; text-transform: uppercase;
+    color: #5d4037; margin-bottom: 5px; border-bottom: 1px solid #d7ccc8;
     letter-spacing: 0.5px;
+    display: flex; align-items: center; /* Pro zarovnání ikonky linku */
 }
 
-/* Styl pro READ mode */
 .value {
-    font-size: 1.15rem; 
-    min-height: 28px;
-    padding: 4px 0;
-    white-space: pre-wrap;
-    color: #212121;
-    font-weight: 500;
+    font-size: 1.15rem; min-height: 28px; padding: 4px 0;
+    white-space: pre-wrap; color: #212121; font-weight: 500;
 }
 
-/* Styl pro EDIT mode inputy */
-.edit-grid input, .edit-grid textarea {
-    width: 100%; 
-    border: 1px solid #a1887f; 
-    background: rgba(255, 255, 255, 0.4);
-    font-family: 'Courier Prime', monospace; 
-    font-size: 1.1rem; 
-    padding: 8px;
-    outline: none; 
-    transition: all 0.2s;
-    border-radius: 2px;
+/* --- PHOTO STYLES --- */
+.photo-container {
+    width: 100%; display: flex; justify-content: center;
+    margin-top: 5px; margin-bottom: 15px;
 }
-.edit-grid input:focus, .edit-grid textarea:focus {
-    background: #fff; 
-    border-color: #3e2723;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+.photo-container img {
+    max-width: 220px; max-height: 280px;
+    border: 6px solid #fff;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    transform: rotate(-2deg);
+    background-color: #eee;
 }
-
-/* QUILL READ FIX */
-.doc-body.ql-editor {
-    padding: 0; overflow: visible;
-    font-size: 1.1rem; line-height: 1.6;
-}
+.no-photo { color: #aaa; font-style: italic; padding: 20px; border: 1px dashed #ccc; }
 
 /* --- EDIT MODE --- */
 .edit-header { display: flex; justify-content: space-between; align-items: center; border: none; }
@@ -250,12 +274,13 @@ body { margin: 0; padding: 0; background: transparent; font-family: 'Roboto Cond
 }
 
 .edit-grid input, .edit-grid textarea {
-    width: 100%; border: 1px solid #bdbdbd; background: rgba(0,0,0,0.02);
+    width: 100%; border: 1px solid #a1887f; background: rgba(255, 255, 255, 0.4);
     font-family: 'Courier Prime', monospace; font-size: 1.1rem; padding: 8px;
-    outline: none; transition: background 0.2s;
+    outline: none; transition: all 0.2s; border-radius: 2px;
 }
 .edit-grid input:focus, .edit-grid textarea:focus {
-    background: rgba(255, 235, 59, 0.1); border-color: #212121;
+    background: #fff; border-color: #3e2723;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .doc-actions {
@@ -271,18 +296,7 @@ body { margin: 0; padding: 0; background: transparent; font-family: 'Roboto Cond
 }
 .btn-stamp:hover { background: #000; }
 
-/* QUILL TOOLBAR FIX */
+/* QUILL FIXES */
 .ql-toolbar { border: none !important; border-bottom: 2px solid #eee !important; background: transparent; }
 .ql-container { border: none !important; font-family: 'Courier Prime', monospace !important; font-size: 1.1rem !important; }
-
-.document-area.single-view-centered {
-    width: 100%;
-    /* Můžeme změnit pozadí na průhledné nebo tmavé, aby to vypadalo, že držíš jen papír */
-    background-color: rgba(44, 30, 20, 0.8); 
-}
-
-/* Ujistíme se, že papír je uprostřed */
-.document-area.single-view-centered .paper-sheet {
-    margin: 0 auto;
-    box-shadow: 0 0 50px rgba(0,0,0,0.8);
-}
+.doc-body.ql-editor { padding: 0; overflow: visible; font-size: 1.1rem; line-height: 1.6; }

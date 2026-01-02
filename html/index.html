@@ -3,220 +3,244 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Cabinet Final</title>
+    <title>RP File Cabinet</title>
     
-    <!-- Hlavní styly -->
+    <!-- CSS -->
     <link rel="stylesheet" href="style.css">
     
-    <!-- Vue 3 Framework -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    
-    <!-- Quill Text Editor (CSS + JS) -->
-    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
-    
-    <!-- FontAwesome Ikony -->
+    <!-- Fonts -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Quill Editor CSS -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Quill JS -->
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 </head>
 <body>
-    <div id="app">
-        <!-- Overlay s v-cloak (skryje Vue syntaxi před načtením) -->
-        <div class="overlay" v-if="visible" v-cloak>
+    
+    <div id="app" v-cloak>
+        
+        <!-- --- OPRAVA: DATALIST PŘESUNUT SEM (GLOBÁLNĚ PRO CELOU APLIKACI) --- -->
+        <!-- Díky tomu je seznam vždy načtený a inputy ho okamžitě vidí -->
+        <datalist id="citizens-list">
+            <option v-for="name in availableCitizens" :key="name" :value="name">{{ name }}</option>
+        </datalist>
+        <!-- ------------------------------------------------------------------- -->
+
+        <!-- Overlay jen když je viditelné -->
+        <div class="overlay" v-if="visible" @click.self="isSingleFileView ? closeMenu() : null">
             
-            <!-- Hlavní kontejner (Deska stolu) -->
-            <div class="desk-surface">
-                
-                <!-- LEVÝ PANEL: KARTOTÉKA (ŠUPLÍK) -->
-                <!-- Zobrazí se pouze, pokud nejsme v režimu prohlížení jednoho souboru z inventáře -->
+            <!-- DESK SURFACE -->
+            <div class="desk-surface" :class="{ 'single-view-centered': isSingleFileView }">
+
+                <!-- LEVÝ PANEL - ŠUPLÍK -->
                 <div class="cabinet-drawer" v-if="!isSingleFileView">
                     
                     <div class="drawer-header">
                         <h2>{{ cabinetName }}</h2>
                         <div class="stats-row">
-                            <span class="stat-badge">
-                                <i class="fa-solid fa-file"></i> {{ files.length }} Spisů
-                            </span>
+                            <span class="stat-badge">Dokumentů: {{ files.length }}</span>
                             <span class="stat-badge" :class="{'danger': emptyPapersCount <= 0}">
-                                <i class="fa-solid fa-scroll"></i> {{ emptyPapersCount }} Papírů
+                                Papír: {{ emptyPapersCount }}x
                             </span>
                         </div>
-                        
-                        <!-- Vyhledávací pole -->
                         <div class="search-bar">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="text" v-model="searchQuery" placeholder="Hledat jméno, spis...">
+                            <i class="fas fa-search"></i>
+                            <input type="text" v-model="searchQuery" placeholder="Hledat spis...">
                         </div>
                     </div>
 
-                    <!-- Seznam spisů (Filtrovaný) -->
                     <div class="drawer-list">
-                        <div 
-                            v-for="(file, index) in filteredFiles" 
-                            :key="index" 
-                            class="drawer-item" 
-                            :class="{ active: selectedFile === file }"
-                            @click="selectFile(file)"
-                        >
-                            <div class="item-icon">
-                                <!-- Ikony podle typu dokumentu -->
-                                <i v-if="getFileType(file) === 'medical_report'" class="fa-solid fa-user-doctor" style="color: #d32f2f;"></i>
-                                <i v-else-if="getFileType(file) === 'police_report'" class="fa-solid fa-shield-halved" style="color: #1976d2;"></i>
-                                <i v-else class="fa-solid fa-file-lines" style="color: #8d6e63;"></i>
-                            </div>
-                            <div class="item-content">
-                                <span class="item-title">{{ getFileTitle(file) }}</span>
-                                <span class="item-meta">{{ getFileLabel(file) }}</span>
-                            </div>
+                        <div v-if="filteredFiles.length === 0" class="no-results">
+                            <i class="fas fa-folder-open"></i>
+                            <p>Žádné záznamy</p>
                         </div>
 
-                        <!-- Pokud filtr nic nenašel -->
-                        <div v-if="filteredFiles.length === 0" class="no-results">
-                            <i class="fa-regular fa-folder-open"></i>
-                            <p>Žádné spisy nenalezeny.</p>
-                        </div>
+                        <!-- VÝPIS SOUBORŮ A SLOŽEK -->
+                        <template v-for="file in filteredFiles" :key="file.name || file.metadata.created">
+                            
+                            <!-- SLOŽKA (PROFIL OBČANA) -->
+                            <div v-if="file.isFolder" class="folder-group">
+                                <div class="drawer-item folder-header" 
+                                     :class="{ active: selectedFile === file }"
+                                     @click="selectFile(file)">
+                                    
+                                    <div class="item-icon" @click.stop="toggleFolder(file)">
+                                        <i class="fas" :class="file.isOpen ? 'fa-folder-open' : 'fa-folder'"></i>
+                                    </div>
+                                    
+                                    <div class="item-content">
+                                        <div class="item-title">{{ getFileTitle(file) }}</div>
+                                        <div class="item-meta">Složka občana ({{ file.children.length }})</div>
+                                    </div>
+                                    
+                                    <div class="folder-toggle" @click.stop="toggleFolder(file)">
+                                        <i class="fas" :class="file.isOpen ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
+                                    </div>
+                                </div>
+
+                                <div v-if="file.isOpen" class="folder-children">
+                                    <div v-for="child in file.children" 
+                                         class="drawer-item child-item"
+                                         :class="{ active: selectedFile === child }"
+                                         @click="selectFile(child)">
+                                        <div class="item-icon"><i class="fas fa-file-alt"></i></div>
+                                        <div class="item-content">
+                                            <div class="item-title">{{ getFileTitle(child) }}</div>
+                                            <div class="item-meta">{{ getFileLabel(child) }}</div>
+                                        </div>
+                                    </div>
+                                    <div v-if="file.children.length === 0" class="empty-folder-msg">
+                                        Žádné přiřazené dokumenty
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- STANDARDNÍ SOUBOR -->
+                            <div v-else class="drawer-item" 
+                                 :class="{ active: selectedFile === file }"
+                                 @click="selectFile(file)">
+                                <div class="item-icon"><i class="fas fa-file"></i></div>
+                                <div class="item-content">
+                                    <div class="item-title">{{ getFileTitle(file) }}</div>
+                                    <div class="item-meta">{{ getFileLabel(file) }}</div>
+                                </div>
+                            </div>
+
+                        </template>
                     </div>
 
                     <div class="drawer-footer">
                         <button class="btn-primary" @click="startCreating" :disabled="emptyPapersCount <= 0">
-                            <i class="fa-solid fa-plus"></i> Nový Záznam
+                            Nový záznam
                         </button>
                         <button class="btn-secondary" @click="closeMenu">
-                            <i class="fa-solid fa-xmark"></i> Zavřít
+                            <i class="fas fa-times"></i>
                         </button>
                     </div>
                 </div>
 
-                <!-- PRAVÝ PANEL: DOKUMENT (PAPÍR) -->
-                <!-- Pokud je single view, přidáme třídu pro vycentrování -->
-                <div class="document-area" :class="{ 'single-view-centered': isSingleFileView }">
+                <!-- PRAVÝ PANEL - PAPÍR -->
+                <div class="document-area">
                     
-                    <!-- STAV 1: Nic nevybráno (zobrazí se jen při práci s kartotékou) -->
-                    <div v-if="mode === 'none'" class="empty-state">
-                        <i class="fa-solid fa-arrow-left-long"></i>
-                        <h3>Vyberte spis ze seznamu</h3>
-                        <p>nebo založte nový záznam tlačítkem vlevo.</p>
+                    <!-- 1. EMPTY STATE -->
+                    <div v-if="mode === 'none' && !selectedFile" class="empty-state">
+                        <i class="fas fa-file-signature"></i>
+                        <h3>Vyberte spis k prohlížení</h3>
+                        <p>Nebo založte nový záznam tlačítkem vlevo.</p>
                     </div>
 
-                    <!-- STAV 2: Zobrazený papír (Čtení nebo Editace) -->
-                    <div v-else class="paper-sheet">
-                        
-                        <!-- A) REŽIM ČTENÍ (READ MODE) -->
-                        <div v-if="mode === 'read'" class="read-mode">
-                            <div class="doc-header">
-                                <div class="stamp">{{ getFileLabel(selectedFile) }}</div>
-                                <h1>{{ getFileTitle(selectedFile) }}</h1>
+                    <!-- 2. READ MODE -->
+                    <div v-if="mode === 'read' && selectedFile" class="paper-sheet">
+                        <div class="doc-header">
+                            <h1>{{ getFileTitle(selectedFile) }}</h1>
+                            <div class="stamp">{{ getFileLabel(selectedFile) }}</div>
+                        </div>
+
+                        <!-- A) FORMULÁŘ (READ) -->
+                        <div v-if="docTypes[getFileType(selectedFile)] && docTypes[getFileType(selectedFile)].isForm" class="form-grid">
+                            <div v-for="field in getFormFields(selectedFile)" 
+                                 class="grid-item" 
+                                 :class="'width-' + (field.width || 'full')">
+                                
+                                <label>{{ field.label }}</label>
+                                
+                                <div v-if="field.key === 'photo'" class="photo-container">
+                                    <img v-if="getFormFieldValue(selectedFile, field.key) && getFormFieldValue(selectedFile, field.key).startsWith('http')" 
+                                         :src="getFormFieldValue(selectedFile, field.key)" 
+                                         alt="Foto"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                    <div class="no-photo" style="display: none;">Fotografie nedostupná</div>
+                                    <div v-if="!getFormFieldValue(selectedFile, field.key) || !getFormFieldValue(selectedFile, field.key).startsWith('http')" class="no-photo">
+                                        Bez fotografie
+                                    </div>
+                                </div>
+
+                                <div v-else class="value">
+                                    {{ getFormFieldValue(selectedFile, field.key) }}
+                                </div>
                             </div>
+                        </div>
+
+                        <!-- B) EDITOR TEXT (READ) -->
+                        <div v-else class="ql-snow">
+                            <div class="ql-editor doc-body" v-html="getFileContent(selectedFile)"></div>
+                        </div>
+
+                        <div class="doc-actions" v-if="!isSingleFileView">
+                            <button class="btn-text" @click="copyFile(selectedFile)" title="Vytvořit kopii (Stojí 1 papír)">
+                                <i class="fas fa-copy"></i> Kopírovat
+                            </button>
+                            <button class="btn-stamp" @click="startEditing(selectedFile)">
+                                Upravit záznam
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 3. EDIT / CREATE MODE -->
+                    <div v-if="mode === 'create' || mode === 'edit'" class="paper-sheet">
+                        <div class="edit-header">
+                            <h3>{{ mode === 'create' ? 'Nový záznam' : 'Editace záznamu' }}</h3>
                             
-                            <!-- 1. Standardní text (Quill HTML) -->
-                            <div v-if="getFileType(selectedFile) === 'standard'" class="doc-body ql-editor" v-html="getFileContent(selectedFile)"></div>
+                            <select v-if="mode === 'create'" v-model="newFile.type" @change="onTypeChange">
+                                <option v-for="(typeData, typeKey) in docTypes" :value="typeKey">
+                                    {{ typeData.label }}
+                                </option>
+                            </select>
+                            <span v-else class="stamp">{{ docTypes[newFile.type] ? docTypes[newFile.type].label : 'Dokument' }}</span>
+                        </div>
 
-                            <!-- 2. Formulář (Grid System) -->
-                            <div v-else class="form-grid">
-                                <div 
-                                    v-for="field in getFormFields(selectedFile)" 
-                                    :key="field.key" 
-                                    class="grid-item"
-                                    :class="'width-' + (field.width || 'full')"
-                                >
-                                    <label>{{ field.label }}</label>
-                                    <div class="value">{{ getFormFieldValue(selectedFile, field.key) }}</div>
-                                </div>
-                            </div>
+                        <input type="text" class="input-title" v-model="newFile.title" placeholder="Nadpis dokumentu...">
 
-                            <!-- Tlačítka akcí pod dokumentem -->
-                            <div class="doc-actions">
-                                <!-- Tlačítko Zpět (jen v kartotéce) -->
-                                <button class="btn-secondary" @click="mode = 'none'" v-if="!isSingleFileView">
-                                    <i class="fa-solid fa-angle-left"></i> Zpět
-                                </button>
+                        <!-- A) FORMULÁŘ EDITACE -->
+                        <div v-if="docTypes[newFile.type] && docTypes[newFile.type].isForm" class="form-grid edit-grid">
+                            
+                            <div v-for="field in docTypes[newFile.type].fields" 
+                                 class="grid-item" 
+                                 :class="'width-' + (field.width || 'full')">
+                                <label>
+                                    {{ field.label }} 
+                                    <i v-if="isLinkedField(field.key)" class="fas fa-link" style="color: #2e7d32; margin-left: 5px;" title="Toto pole přiřadí dokument do složky občana"></i>
+                                </label>
+                                
+                                <textarea v-if="field.type === 'textarea'" 
+                                          v-model="newFile.formData[field.key]" 
+                                          :rows="field.rows || 3"></textarea>
+                                
+                                <!-- INPUT S NAŠEPTÁVAČEM (Napojený na globální datalist) -->
+                                <input v-else-if="isLinkedField(field.key)"
+                                       type="text" 
+                                       v-model="newFile.formData[field.key]"
+                                       list="citizens-list"
+                                       placeholder="Vyberte nebo vypište..."
+                                       autocomplete="off"
+                                       style="border-color: #2e7d32; background-color: rgba(46, 125, 50, 0.05);">
 
-                                <!-- Tlačítko Zavřít (jen při prohlížení z inventáře) -->
-                                <button class="btn-secondary" @click="closeMenu" v-if="isSingleFileView">
-                                    <i class="fa-solid fa-xmark"></i> Zavřít
-                                </button>
-                                    <button 
-                                        class="btn-secondary" 
-                                        @click="copyFile(selectedFile)" 
-                                        v-if="!isSingleFileView" 
-                                        :disabled="emptyPapersCount <= 0"
-                                        title="Vytvořit kopii (Stojí 1 papír)"
-                                    >
-                                        <i class="fa-solid fa-copy"></i> Kopírovat
-                                    </button>
-                                <!-- Tlačítko Editovat (jen v kartotéce) -->
-                                <button class="btn-stamp" @click="startEditing(selectedFile)" v-if="!isSingleFileView">
-                                    <i class="fa-solid fa-pen-to-square"></i> Editovat
-                                </button>
+                                <input v-else 
+                                       type="text" 
+                                       v-model="newFile.formData[field.key]"
+                                       :placeholder="field.key === 'photo' ? 'Vložte URL obrázku' : ''">
                             </div>
                         </div>
 
-                        <!-- B) REŽIM PSANÍ / EDITACE (CREATE/EDIT MODE) -->
-                        <div v-else-if="mode === 'create' || mode === 'edit'" class="create-mode">
-                            <div class="doc-header edit-header">
-                                <h3>{{ mode === 'create' ? 'Nový dokument' : 'Editace dokumentu' }}</h3>
-                                <!-- Výběr typu (Medical, Police, Standard...). Při editaci zakázáno. -->
-                                <select v-model="newFile.type" @change="onTypeChange" :disabled="mode === 'edit'">
-                                    <option v-for="(cfg, key) in docTypes" :value="key">{{ cfg.label }}</option>
-                                </select>
-                            </div>
-
-                            <!-- Název spisu -->
-                            <div class="form-group title-group">
-                                <input type="text" v-model="newFile.title" placeholder="Zadejte název spisu..." class="input-title" maxlength="40">
-                            </div>
-
-                            <!-- 1. Quill Editor (pro volný text) -->
-                            <div v-show="docTypes[newFile.type] && !docTypes[newFile.type].isForm" class="editor-wrapper">
-                                <div id="quill-editor"></div>
-                            </div>
-
-                            <!-- 2. Form Editor (pro formuláře s Gridem) -->
-                            <div 
-                                v-if="docTypes[newFile.type] && docTypes[newFile.type].isForm" 
-                                class="form-grid edit-grid"
-                            >
-                                <div 
-                                    v-for="field in docTypes[newFile.type].fields" 
-                                    :key="field.key" 
-                                    class="grid-item"
-                                    :class="'width-' + (field.width || 'full')"
-                                >
-                                    <label>{{ field.label }}</label>
-                                    
-                                    <!-- Input type TEXT -->
-                                    <input 
-                                        v-if="field.type === 'text'" 
-                                        type="text" 
-                                        v-model="newFile.formData[field.key]"
-                                        autocomplete="off"
-                                    >
-                                    
-                                    <!-- Input type TEXTAREA (s dynamickými řádky) -->
-                                    <textarea 
-                                        v-else-if="field.type === 'textarea'" 
-                                        v-model="newFile.formData[field.key]" 
-                                        :rows="field.rows || 3"
-                                    ></textarea>
-                                </div>
-                            </div>
-
-                            <!-- Tlačítka Uložit / Zrušit -->
-                            <div class="doc-actions">
-                                <button @click="cancelEditCreate" class="btn-text">Zrušit</button>
-                                <button @click="saveFile" class="btn-stamp">
-                                    <i class="fa-solid fa-floppy-disk"></i> Uložit
-                                </button>
-                            </div>
+                        <!-- B) QUILL EDITOR -->
+                        <div v-show="docTypes[newFile.type] && !docTypes[newFile.type].isForm">
+                            <div id="quill-editor" style="height: 400px;"></div>
                         </div>
 
+                        <div class="doc-actions">
+                            <button class="btn-text" @click="cancelEditCreate">Zrušit</button>
+                            <button class="btn-stamp" @click="saveFile">ULOŽIT DO KARTOTÉKY</button>
+                        </div>
                     </div>
-                </div>
 
+                </div>
             </div>
         </div>
     </div>
-    
-    <!-- Logika Vue aplikace -->
+
     <script src="script.js"></script>
 </body>
 </html>
