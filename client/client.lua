@@ -48,14 +48,14 @@ function hasJob(jobtable)
     
     local pjob = LocalPlayer.state.Character.Job
     local pGrade = LocalPlayer.state.Character.Grade
-    local pLabel = LocalPlayer.state.Character.Label
+
     
     for _, v in pairs(jobtable) do
         -- Opravena podmínka pro string/nil porovnání labelu
         if v.job == pjob and v.grade <= pGrade then
-            if v.label == "" or v.label == nil or v.label == pLabel then
+            
                 return true
-            end
+           
         end
     end
     return false
@@ -260,6 +260,7 @@ Citizen.CreateThread(function()
                         Wait(1000)
                     end
                 end
+                
             end
         end
         Citizen.Wait(pause)

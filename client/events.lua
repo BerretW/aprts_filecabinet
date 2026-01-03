@@ -25,7 +25,8 @@ AddEventHandler("aprts_filecabinet:Client:OpenCabinetMenu", function(id, files, 
             cabinetName = cabinet.name,
             files = files,
             emptyPapersCount = emptyPapersCount,
-            docTypes = docTypes -- Předáváme config do JS
+            docTypes = docTypes, -- Předáváme config do JS
+                 cabinetStyle = cabinet.style or {} 
         })
     end
 end)

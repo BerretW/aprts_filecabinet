@@ -29,9 +29,21 @@ const app = createApp({
                 content: '',
                 formData: {}
             },
-
+            modal: {
+                visible: false,
+                title: '',
+                message: ''
+            },
             // Instance Quill editoru
-            quill: null
+            quill: null,
+            focusedField: null,
+            activeStyle: {
+                logo: null,
+                background: '#2c1e14',
+                sidebar: '#3e2723',
+                accent: '#ffcc80',
+                button: '#2e7d32'
+            }
         };
     },
     computed: {
@@ -56,44 +68,88 @@ const app = createApp({
                 return matchesSelf;
             });
         },
-availableCitizens() {
-    let names = [];
-    
-    // Projdeme všechny soubory
-    this.files.forEach(file => {
-        // Kontrola, zda je to složka občana (isProfile z Configu)
-        const type = this.getFileType(file);
-        const typeConfig = this.docTypes[type];
-        
-        if (typeConfig && typeConfig.isProfile) {
-            try {
-                // Pokusíme se vytáhnout jméno z obsahu
-                const content = JSON.parse(file.metadata.content || "{}");
-                
-                // Pokud tam je jméno, přidáme ho
-                if (content.name && typeof content.name === 'string' && content.name.trim().length > 0) {
-                    names.push(content.name.trim());
-                }
-            } catch (e) {
-                // Ignorujeme chyby parsování u poškozených souborů
-            }
-        }
-    });
+        availableCitizens() {
+            let names = [];
 
-    // Seřadíme a odstraníme duplicity
-    const result = [...new Set(names)].sort();
-    
-    // VÝPIS DO F8 KONZOLE (Důležité pro kontrolu!)
-    if (this.visible) {
-        console.log(`[NAŠEPTÁVAČ] Nalezeno ${result.length} občanů:`, result);
-    }
-    
-    return result;
-}
+            // Projdeme všechny soubory
+            this.files.forEach(file => {
+                // Kontrola, zda je to složka občana (isProfile z Configu)
+                const type = this.getFileType(file);
+                const typeConfig = this.docTypes[type];
+
+                if (typeConfig && typeConfig.isProfile) {
+                    try {
+                        // Pokusíme se vytáhnout jméno z obsahu
+                        const content = JSON.parse(file.metadata.content || "{}");
+
+                        // Pokud tam je jméno, přidáme ho
+                        if (content.name && typeof content.name === 'string' && content.name.trim().length > 0) {
+                            names.push(content.name.trim());
+                        }
+                    } catch (e) {
+                        // Ignorujeme chyby parsování u poškozených souborů
+                    }
+                }
+            });
+
+            // Seřadíme a odstraníme duplicity
+            const result = [...new Set(names)].sort();
+
+            // VÝPIS DO F8 KONZOLE (Důležité pro kontrolu!)
+            if (this.visible) {
+                console.log(`[NAŠEPTÁVAČ] Nalezeno ${result.length} občanů:`, result);
+            }
+
+            return result;
+        },
+        currentSuggestions() {
+            if (!this.focusedField) return [];
+
+            // Získáme aktuální text v inputu
+            const currentVal = (this.newFile.formData[this.focusedField] || "").toLowerCase();
+
+            // Pokud je input prázdný, nezobrazujeme nic (nebo můžeš vrátit všechny, pokud chceš)
+            if (currentVal.length === 0) return [];
+
+            // Filtrujeme availableCitizens
+            return this.availableCitizens.filter(name =>
+                name.toLowerCase().includes(currentVal)
+            );
+        },
+        themeVars() {
+            return {
+                '--theme-bg': this.activeStyle.background,
+                '--theme-sidebar': this.activeStyle.sidebar,
+                '--theme-accent': this.activeStyle.accent,
+                '--theme-btn': this.activeStyle.button
+            };
+        }
     },
     methods: {
         // --- POMOCNÉ FUNKCE PRO ZOBRAZENÍ DAT ---
+        onFocus(key) {
+            this.focusedField = key;
+        },
+        onBlur() {
+            setTimeout(() => {
+                this.focusedField = null;
+            }, 200);
+        },
+        selectSuggestion(name) {
+            if (this.focusedField) {
+                this.newFile.formData[this.focusedField] = name;
+                this.focusedField = null; // Zavřít našeptávač
+            }
+        },
+        showModal(title, message) {
+            this.modal.title = title;
+            this.modal.message = message;
+            this.modal.visible = true;
+        },
 
+        closeModal() {
+            this.modal.visible = false;
+        },
         getFileTitle(file) {
             if (!file || !file.metadata) return "Poškozený záznam";
             return file.metadata.title || "Bez názvu";
@@ -134,22 +190,22 @@ availableCitizens() {
         },
 
         // --- AKCE UI ---
-isLinkedField(fieldKey) {
-    // 1. Varianta: Je to definované v Configu jako linkedKey?
-    const currentTypeConfig = this.docTypes[this.newFile.type];
-    if (currentTypeConfig && currentTypeConfig.linkedKey === fieldKey) {
-        return true;
-    }
+        isLinkedField(fieldKey) {
+            // 1. Varianta: Je to definované v Configu jako linkedKey?
+            const currentTypeConfig = this.docTypes[this.newFile.type];
+            if (currentTypeConfig && currentTypeConfig.linkedKey === fieldKey) {
+                return true;
+            }
 
-    // 2. Varianta: Je to jedno z běžných jmenných polí? (POJISTKA)
-    // Pokud se klíč pole rovná některému z těchto, zapneme našeptávač automaticky
-    const commonNameFields = ["name", "suspect", "patient", "doctor", "owner", "citizen", "fullname"];
-    if (commonNameFields.includes(fieldKey)) {
-        return true;
-    }
+            // 2. Varianta: Je to jedno z běžných jmenných polí? (POJISTKA)
+            // Pokud se klíč pole rovná některému z těchto, zapneme našeptávač automaticky
+            const commonNameFields = ["name", "suspect", "patient", "doctor", "owner", "citizen", "fullname"];
+            if (commonNameFields.includes(fieldKey)) {
+                return true;
+            }
 
-    return false;
-},
+            return false;
+        },
         selectFile(file) {
             this.selectedFile = file;
             this.mode = 'read';
@@ -333,7 +389,10 @@ isLinkedField(fieldKey) {
 
         saveFile() {
             // Validace
-            if (!this.newFile.title || this.newFile.title.trim() === "") return;
+            if (!this.newFile.title || this.newFile.title.trim() === "") {
+                this.showModal("Chyba záznamu", "Dokument musí mít vyplněný nadpis!");
+                return;
+            }
 
             let finalContent = "";
             const typeConfig = this.docTypes[this.newFile.type];
@@ -408,29 +467,37 @@ isLinkedField(fieldKey) {
             }).catch(err => { });
         },
 
-handleMessage(event) {
-    const item = event.data;
-    
-    if (item.action === 'open') {
-        // 1. Nejdřív načteme definice typů (Config)
-        this.docTypes = item.docTypes || {};
-        
-        // 2. Načteme surová data souborů
-        this.files = item.files || [];
-        this.emptyPapersCount = item.emptyPapersCount || 0;
-        
-        this.cabinetID = item.cabinetID;
-        this.cabinetName = item.cabinetName;
+        handleMessage(event) {
+            const item = event.data;
 
-        // 3. TEPRVE TEĎ spustíme třídění, protože už máme this.docTypes
-        this.processedFiles = this.processFilesStructure(this.files);
-        
-        this.visible = true;
-        this.searchQuery = '';
-        this.mode = 'none';
-        this.isSingleFileView = false; 
-        this.selectedFile = null;
-    }
+            if (item.action === 'open') {
+                // 1. Nejdřív načteme definice typů (Config)
+                this.docTypes = item.docTypes || {};
+
+                // 2. Načteme surová data souborů
+                this.files = item.files || [];
+                this.emptyPapersCount = item.emptyPapersCount || 0;
+
+                this.cabinetID = item.cabinetID;
+                this.cabinetName = item.cabinetName;
+
+                // 3. TEPRVE TEĎ spustíme třídění, protože už máme this.docTypes
+                this.processedFiles = this.processFilesStructure(this.files);
+
+                this.visible = true;
+                this.searchQuery = '';
+                this.mode = 'none';
+                this.isSingleFileView = false;
+                this.selectedFile = null;
+                const s = item.cabinetStyle || {};
+                this.activeStyle = {
+                    logo: s.logo || null,
+                    background: s.background || '#2c1e14',
+                    sidebar: s.sidebar || '#3e2723',
+                    accent: s.accent || '#ffcc80',
+                    button: s.button || '#2e7d32'
+                };
+            }
 
             // 2. Otevření jednoho souboru (z inventáře)
             if (item.action === 'openSingleFile') {

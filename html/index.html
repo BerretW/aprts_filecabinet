@@ -22,23 +22,34 @@
     
     <div id="app" v-cloak>
         
-        <!-- --- OPRAVA: DATALIST PŘESUNUT SEM (GLOBÁLNĚ PRO CELOU APLIKACI) --- -->
-        <!-- Díky tomu je seznam vždy načtený a inputy ho okamžitě vidí -->
-        <datalist id="citizens-list">
-            <option v-for="name in availableCitizens" :key="name" :value="name">{{ name }}</option>
-        </datalist>
-        <!-- ------------------------------------------------------------------- -->
+        <!-- VLASTNÍ MODAL (ALERT) -->
+        <div class="modal-overlay" v-if="modal.visible">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h3>{{ modal.title }}</h3>
+                </div>
+                <div class="modal-body">
+                    <p>{{ modal.message }}</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-stamp" @click="closeModal">ROZUMÍM</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Overlay jen když je viditelné -->
         <div class="overlay" v-if="visible" @click.self="isSingleFileView ? closeMenu() : null">
             
-            <!-- DESK SURFACE -->
-            <div class="desk-surface" :class="{ 'single-view-centered': isSingleFileView }">
+            <!-- DESK SURFACE (Aplikace stylů z Configu) -->
+            <div class="desk-surface" :class="{ 'single-view-centered': isSingleFileView }" :style="themeVars">
 
                 <!-- LEVÝ PANEL - ŠUPLÍK -->
                 <div class="cabinet-drawer" v-if="!isSingleFileView">
                     
                     <div class="drawer-header">
+                        <!-- LOGO (pokud je definované v configu) -->
+                        <img v-if="activeStyle.logo" :src="activeStyle.logo" class="drawer-logo" alt="Logo">
+                        
                         <h2>{{ cabinetName }}</h2>
                         <div class="stats-row">
                             <span class="stat-badge">Dokumentů: {{ files.length }}</span>
@@ -205,19 +216,34 @@
                                     <i v-if="isLinkedField(field.key)" class="fas fa-link" style="color: #2e7d32; margin-left: 5px;" title="Toto pole přiřadí dokument do složky občana"></i>
                                 </label>
                                 
+                                <!-- 1. TEXTAREA -->
                                 <textarea v-if="field.type === 'textarea'" 
                                           v-model="newFile.formData[field.key]" 
                                           :rows="field.rows || 3"></textarea>
                                 
-                                <!-- INPUT S NAŠEPTÁVAČEM (Napojený na globální datalist) -->
-                                <input v-else-if="isLinkedField(field.key)"
+                                <!-- 2. INPUT S VLASTNÍM NAŠEPTÁVAČEM (Pro RedM) -->
+                                <div v-else-if="isLinkedField(field.key)" class="input-wrapper">
+                                    <input 
                                        type="text" 
                                        v-model="newFile.formData[field.key]"
-                                       list="citizens-list"
+                                       @focus="onFocus(field.key)"
+                                       @blur="onBlur"
                                        placeholder="Vyberte nebo vypište..."
                                        autocomplete="off"
-                                       style="border-color: #2e7d32; background-color: rgba(46, 125, 50, 0.05);">
+                                       style="border-color: #2e7d32; background-color: rgba(46, 125, 50, 0.05); width: 100%;">
+                                    
+                                    <!-- Vlastní dropdown seznam -->
+                                    <div v-if="focusedField === field.key && currentSuggestions.length > 0" class="custom-datalist">
+                                        <div v-for="suggestion in currentSuggestions" 
+                                             :key="suggestion" 
+                                             class="suggestion-item"
+                                             @click="selectSuggestion(suggestion)">
+                                            {{ suggestion }}
+                                        </div>
+                                    </div>
+                                </div>
 
+                                <!-- 3. STANDARDNÍ INPUT -->
                                 <input v-else 
                                        type="text" 
                                        v-model="newFile.formData[field.key]"

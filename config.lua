@@ -19,9 +19,43 @@ Config.Jobs = {
 Config.InventoryPrefix = "aprts_filecabinet_"
 Config.FileItem = 'filecabinet_key'
 Config.EmptyPaperItem = 'product_paper'
-Config.CabinetLocations= {
-    [1]={name = "Kartotéka Doktor Valentine", coords =vector3(-288.447601, 813.201538, 119.385971),jobs = {{job = 'doctor', grade = 1}}, heading = 70.0, model = 'prop_file_cabinet_01'},
+Config.CabinetLocations = {
+    [1] = {
+        name = "Kartotéka Doktor Valentine",
+        coords = vector3(-288.447601, 813.201538, 119.385971),
+        jobs = {{
+            job = 'doctor',
+            grade = 1
+        }},
+        style = {
+            logo = "https://file.whrp.cz/f/3bcf3c60-1933-436b-8fa1-995e09313877", -- Odkaz na logo (transparentní PNG)
+            background = "#2c1e14",  -- Hlavní pozadí stolu (tmavé dřevo)
+            sidebar = "#3e2723",     -- Pozadí bočního panelu
+            accent = "#ff9a02ff",      -- Barva textů a aktivních prvků (zlatá)
+            button = "#2e7d32"       -- Barva hlavního tlačítka (zelená)
+        },
+        heading = 70.0,
+        model = 'prop_file_cabinet_01'
+    },
+    [2] = {
+        name = "Kartotéka Policejní Stanice Valentine",
+        coords = vector3(-279.171448, 806.143616, 119.380066),
+        jobs = {{
+            job = 'sheriff',
+            grade = 1
+        }},
+        heading = 180.0,
+        model = 'prop_file_cabinet_01'
+    },
+    [3] = {
+        name = "Schránka na stížnosti",
+        coords = vector3(-280.187286, 788.078796, 118.700890),
+        heading = 90.0,
+        
+        model = 'prop_file_cabinet_01'
+    }
 }
+
 
 -- NOVÉ: Definice typů dokumentů
 Config.DocumentTypes = {
